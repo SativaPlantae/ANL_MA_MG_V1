@@ -1,6 +1,7 @@
 import geopandas as gpd
 from shapely.geometry import Point
 import os
+import zipfile
 
 def analisar_coordenada(x, y, pasta_camadas='camadas'):
     ponto = Point(x, y)
@@ -16,17 +17,33 @@ def analisar_coordenada(x, y, pasta_camadas='camadas'):
         }
     }
 
-    for campo in resultado['campos']:
+    zip_nomes = {
+        'dm': 'dm.zip',
+        'restricoes': 'restricao.zip',
+        'licenca': 'licenca.zip',
+        'tapm': 'tapm.zip',
+        'sensibilidade': 'sensibilidade.zip'
+    }
+
+    for campo, zip_nome in zip_nomes.items():
         pasta = os.path.join(pasta_camadas, campo)
-        if not os.path.exists(pasta):
+        zip_path = os.path.join(pasta, zip_nome)
+
+        if not os.path.exists(zip_path):
             continue
 
-        shp_files = [f for f in os.listdir(pasta) if f.endswith('.shp')]
+        temp_folder = os.path.join(pasta_camadas, f"temp_{campo}")
+        os.makedirs(temp_folder, exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(temp_folder)
+
+        shp_files = [f for f in os.listdir(temp_folder) if f.endswith('.shp')]
         if not shp_files:
             continue
 
-        caminho_shp = os.path.join(pasta, shp_files[0])
-        gdf = gpd.read_file(caminho_shp).to_crs(epsg=31983)
+        shp_path = os.path.join(temp_folder, shp_files[0])
+        gdf = gpd.read_file(shp_path).to_crs(epsg=31983)
 
         if gdf.contains(ponto).any():
             resultado['campos'][campo] = 'Sim'
